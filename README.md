@@ -41,6 +41,7 @@ The screenshots use example values. Your level and EXP appear when the game HUD 
 - Estimated time to your next level.
 - Exact EXP required and remaining when you **hover** over the overlay.
 - Full and tiny layouts, adjustable size and click-through mode.
+- Stable on-screen numbers: the display refreshes every **12 seconds**.
 
 **This app contains only EXP tracking and its display controls.** It has no bot, automated gameplay, key injection, potion or mesos tracking, map tools, profile builder, damage meter, or leaderboard.
 
@@ -51,7 +52,7 @@ The screenshots use example values. Your level and EXP appear when the game HUD 
 | What you want to do | How |
 | --- | --- |
 | Move the overlay | **Left-click and drag anywhere** on it, including in tiny mode |
-| Use tiny mode / return to full view | Right-click → **Tiny mode**, or **Ctrl+Alt+T** |
+| Use tiny mode / return to full view | Click **MINI / FULL** at the **top center**, or press **Ctrl+Alt+T**; also available in the right-click menu |
 | Pause / resume reading | Right-click → **Pause tracking / Resume tracking**, or **Ctrl+Alt+P** |
 | Click through the overlay | Right-click → **Click through**, or **Ctrl+Alt+L** |
 | Unlock a click-through overlay | **Ctrl+Alt+L**, or use the **tray icon's menu** |
@@ -84,7 +85,7 @@ If another program already uses a shortcut, use the right-click or tray menu. Th
 
 ## How the numbers work
 
-The tracker reads the visible game HUD about once per second. It checks that integer EXP agrees with the displayed percentage and the bundled Classic level table. Suspicious changes, losses and level-ups require confirmation.
+The tracker reads the visible game HUD about once per second for accurate accounting, but updates the displayed numbers only every **12 seconds** to keep the overlay calm. The first confirmed reading appears immediately, and manual pause/reset controls still respond immediately. Moving, hovering or switching views does not force the numbers to refresh. It checks that integer EXP agrees with the displayed percentage and the bundled Classic level table. Suspicious changes, losses and level-ups require confirmation.
 
 - Rates use **observed gameplay time**, excluding time while the game is hidden or tracking is paused.
 - If the HUD is unreadable for over six seconds, the next confirmed reading becomes a new baseline. **Unseen EXP is excluded**, rather than guessed.

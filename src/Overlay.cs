@@ -9,29 +9,50 @@ namespace ViddyExp {
   readonly Tracker app;
   readonly ToolTip tip=new ToolTip { InitialDelay=250,ReshowDelay=100,AutoPopDelay=15000 };
   Point dragStart,windowStart;
-  bool dragging;
+  bool dragging,buttonPressed,buttonHover;
+  DateTime nextRefresh=DateTime.MinValue;
+  internal DisplaySnapshot Display;
+  public const int RefreshSeconds=12;
   string lastTip="";
   static readonly Color Ink=Color.FromArgb(64,43,27),Muted=Color.FromArgb(155,135,105);
   public Overlay(Tracker owner) {
    app=owner; FormBorderStyle=FormBorderStyle.None; ShowInTaskbar=false;TopMost=true;
    DoubleBuffered=true;AutoScaleMode=AutoScaleMode.None;StartPosition=FormStartPosition.Manual;
-   BackColor=Color.Magenta;TransparencyKey=Color.Magenta;Text="Viddy EXP Only";
+   BackColor=Color.FromArgb(153,111,58);TransparencyKey=Color.Empty;Text="Viddy EXP Only";
    Location=new Point(app.Settings.X,app.Settings.Y);ContextMenuStrip=app.Menu;
+   RefreshData(DateTime.UtcNow,true);
    UpdateLayout();
    MouseDown+=delegate(object sender,MouseEventArgs e) {
     if(e.Button!=MouseButtons.Left||app.Settings.Locked) return;
+    if(IsToggle(e.Location)) { buttonPressed=true;Capture=true;Invalidate();return; }
     dragging=true;dragStart=Cursor.Position;windowStart=Location;Capture=true;
    };
    MouseMove+=delegate(object sender,MouseEventArgs e) {
     if(dragging) { var p=Cursor.Position;Location=new Point(windowStart.X+p.X-dragStart.X,windowStart.Y+p.Y-dragStart.Y);return; }
+    bool over=IsToggle(e.Location)&&!app.Settings.Locked;
+    if(buttonHover!=over) { buttonHover=over;Invalidate(); }
+    Cursor=app.Settings.Locked?Cursors.Default:over?Cursors.Hand:Cursors.SizeAll;
     UpdateTip(e.Location);
    };
-   MouseUp+=delegate { if(dragging) { dragging=false;Capture=false;app.Save(); } };
-   MouseCaptureChanged+=delegate { dragging=false; };
+   MouseUp+=delegate(object sender,MouseEventArgs e) {
+    bool activate=buttonPressed&&e.Button==MouseButtons.Left;
+    bool moved=dragging;buttonPressed=false;dragging=false;Capture=false;
+    if(activate) ToggleAt(e.Location);
+    else if(moved)app.Save();
+    Invalidate();
+   };
+   MouseCaptureChanged+=delegate { dragging=false;buttonPressed=false; };
+   MouseLeave+=delegate { if(buttonHover) { buttonHover=false;Invalidate(); } };
    Shown+=delegate { ApplyLock(); };
   }
   protected override bool ShowWithoutActivation { get { return true; } }
-  protected override CreateParams CreateParams { get { var p=base.CreateParams;p.ExStyle|=0x08000000|0x80;return p; } }
+  protected override CreateParams CreateParams { get { var p=base.CreateParams;p.ExStyle|=0x08000000|0x80|0x80000;return p; } }
+  protected override void OnHandleCreated(EventArgs e) {
+   base.OnHandleCreated(e);
+   // Fully opaque layered content keeps click-through working without a color key.
+   Native.SetLayeredWindowAttributes(Handle,0,255,2);
+   ApplyLock();
+  }
   public void ApplyLock() {
    if(!IsHandleCreated) return;
    int style=Native.GetWindowLong(Handle,-20);
@@ -43,7 +64,25 @@ namespace ViddyExp {
    ClientSize=new Size((int)Math.Round(design.Width*app.Settings.Scale),(int)Math.Round(design.Height*app.Settings.Scale));
    var screen=Screen.FromRectangle(Bounds).WorkingArea;
    Location=new Point(Math.Max(screen.Left,Math.Min(Left,screen.Right-Width)),Math.Max(screen.Top,Math.Min(Top,screen.Bottom-Height)));
-   Invalidate();
+   using(var shape=WindowShape()) {
+    using(var transform=new Matrix()) { transform.Scale((float)app.Settings.Scale,(float)app.Settings.Scale);shape.Transform(transform); }
+    var old=Region;Region=new Region(shape);if(old!=null)old.Dispose();
+   }
+   buttonHover=false;buttonPressed=false;Invalidate();
+  }
+  GraphicsPath WindowShape() {
+   return app.Settings.Tiny?Round(new RectangleF(.5f,.5f,478,36),8):Round(new RectangleF(1,2,657,166),15);
+  }
+  internal RectangleF ToggleBounds { get { return app.Settings.Tiny?new RectangleF(219,1,42,15):new RectangleF(302,12,56,23); } }
+  bool IsToggle(Point point) { return ToggleBounds.Contains(point.X/(float)app.Settings.Scale,point.Y/(float)app.Settings.Scale); }
+  internal bool ToggleAt(Point point) {
+   if(app.Settings.Locked||!IsToggle(point))return false;
+   app.ToggleTiny();return true;
+  }
+  internal bool RefreshData(DateTime now,bool force) {
+   bool firstReading=Display!=null&&Display.Current==null&&app.Session.Current!=null;
+   if(!force&&!firstReading&&Display!=null&&now<nextRefresh)return false;
+   Display=DisplaySnapshot.Capture(app);nextRefresh=now.AddSeconds(RefreshSeconds);Invalidate();return true;
   }
   protected override void OnPaint(PaintEventArgs e) { base.OnPaint(e); Draw(e.Graphics,app.Settings.Scale); }
   public Bitmap Render() {
@@ -54,7 +93,9 @@ namespace ViddyExp {
   void Draw(Graphics g,double scale) {
    var saved=g.Save();g.ScaleTransform((float)scale,(float)scale);
    g.SmoothingMode=SmoothingMode.AntiAlias;g.TextRenderingHint=TextRenderingHint.AntiAliasGridFit;
+   using(var shape=WindowShape())using(var background=new SolidBrush(BackColor))g.FillPath(background,shape);
    if(app.Settings.Tiny) DrawTiny(g);else DrawFull(g);
+   DrawToggle(g);
    g.Restore(saved);
   }
   static GraphicsPath Round(RectangleF r,float radius) {
@@ -76,7 +117,7 @@ namespace ViddyExp {
   void Level(Graphics g,RectangleF rect,bool small) {
    Panel(g,rect,6,Color.FromArgb(70,68,69),Color.FromArgb(42,42,44),Color.FromArgb(103,99,94),1.5f);
    DrawText(g,"LV.",small?12:21,FontStyle.Bold|FontStyle.Italic,Color.White,rect.X+7,rect.Y,small?28:38,rect.Height);
-   var current=app.Session.Current;
+   var current=Display.Current;
    string level=current==null?"--":current.Level.ToString("00");
    float x=rect.X+(small?35:46),w=small?13:21;
    foreach(char c in level) {
@@ -86,7 +127,7 @@ namespace ViddyExp {
   }
   void Progress(Graphics g,RectangleF rect,bool label) {
    Panel(g,rect,label?6:2,Color.FromArgb(72,71,76),Color.FromArgb(99,98,103),Color.FromArgb(65,63,60),label?2:.5f);
-   var r=app.Session.Current;double percent=r==null?0:r.Percent;
+   var r=Display.Current;double percent=r==null?0:r.Percent;
    float inset=label?2:.5f;
    var inner=new RectangleF(rect.X+inset,rect.Y+inset,rect.Width-inset*2,rect.Height-inset*2);
    if(percent>0) using(var clip=Round(inner,4)) {
@@ -96,7 +137,7 @@ namespace ViddyExp {
     g.Restore(state);
    }
    if(!label) return;
-   string text=r==null?(app.Paused?"PAUSED":"Waiting for MapleStory…"):"EXP "+Format.Number(r.Exp)+" ["+r.Percent.ToString("0.00",System.Globalization.CultureInfo.InvariantCulture)+"%]";
+   string text=r==null?(Display.Paused?"PAUSED":"Waiting for MapleStory…"):"EXP "+Format.Number(r.Exp)+" ["+r.Percent.ToString("0.00",System.Globalization.CultureInfo.InvariantCulture)+"%]";
    var area=new RectangleF(rect.X+5,rect.Y+1,rect.Width-10,rect.Height-2);
    var shadow=area;shadow.Offset(1,1);DrawText(g,text,16,FontStyle.Bold,Color.FromArgb(65,68,50),shadow,StringAlignment.Center);
    DrawText(g,text,16,FontStyle.Bold,Color.White,area,StringAlignment.Center);
@@ -111,40 +152,62 @@ namespace ViddyExp {
    }
    Leaf(g,16,15,16);
    DrawText(g,"EXP TRACKER",16,FontStyle.Bold,Color.FromArgb(255,248,229),40,9,260,28);
-   DrawText(g,app.Paused?"PAUSED":app.Session.Current!=null&&!app.Live?"WAITING":app.Settings.DisplayName,16,FontStyle.Bold,Color.FromArgb(255,248,229),new RectangleF(390,9,246,28),StringAlignment.Far);
-   Level(g,new RectangleF(16,57,93,39),false);
-   Progress(g,new RectangleF(124,63,516,27),true);
-   string[] labels={"LAST 5 MIN","EXP/H · 30M","THIS SESSION",app.Session.Current==null?"TO NEXT LEVEL":"TO LV. "+(app.Session.Current.Level+1)};
-   string[] values={app.Session.Current==null?"—":Format.Signed(app.Session.GainIn(300)),app.RateText,app.Session.Current==null?"—":Format.Signed(app.Session.Net),Format.Duration(app.Session.Eta)};
+   DrawText(g,Display.Paused?"PAUSED":Display.Current!=null&&!Display.Live?"WAITING":app.Settings.DisplayName,16,FontStyle.Bold,Color.FromArgb(255,248,229),new RectangleF(390,9,246,28),StringAlignment.Far);
+   Level(g,new RectangleF(16,57,103,39),false);
+   Progress(g,new RectangleF(133,63,507,27),true);
+   string[] labels={"LAST 5 MIN","EXP/H · 30M","THIS SESSION",Display.Current==null?"TO NEXT LEVEL":"TO LV. "+(Display.Current.Level+1)};
+   string[] values={Display.Current==null?"—":Display.LastFive,Display.Rate,Display.Current==null?"—":Display.Net,Display.Eta};
    for(int i=0;i<4;i++) {
     float x=16+i*162;
     if(i>0)using(var p=new Pen(Color.FromArgb(226,212,186)))g.DrawLine(p,x-12,105,x-12,154);
     DrawText(g,labels[i],12,FontStyle.Bold,Muted,x,105,148,20);
     DrawText(g,values[i],24,FontStyle.Bold,Ink,x,125,148,32);
    }
-   // No additional toolbar: all tracker controls are in the right-click menu.
+   // The mode switch is the only on-overlay button; the menu holds other controls.
   }
   void DrawTiny(Graphics g) {
    Panel(g,new RectangleF(1,1,477,35),8,Color.FromArgb(255,251,237),Color.FromArgb(243,231,205),Color.FromArgb(166,119,60),1.5f);
    Level(g,new RectangleF(5,4,70,28),true);
-   var reading=app.Session.Current;
-   DrawText(g,reading==null?(app.Paused?"PAUSED":"WAITING"):reading.Percent.ToString("0.00")+"%",12,FontStyle.Bold,Ink,83,3,63,23);
+   var reading=Display.Current;
+   DrawText(g,reading==null?(Display.Paused?"PAUSED":"WAITING"):reading.Percent.ToString("0.00")+"%",12,FontStyle.Bold,Ink,83,3,63,23);
    Progress(g,new RectangleF(83,27,60,5),false);
-   TinyCell(g,154,"EXP/H",app.RateText,96);
-   TinyCell(g,261,"SESSION",reading==null?"—":Format.Signed(app.Session.Net),103);
-   TinyCell(g,376,reading==null?"NEXT":"LV. "+(reading.Level+1),Format.Duration(app.Session.Eta),92);
-   if(app.Paused)using(var b=new SolidBrush(Color.FromArgb(168,102,43))) {g.FillRectangle(b,470,9,2,9);g.FillRectangle(b,474,9,2,9);}
+   TinyCell(g,154,"EXP/H",Display.Rate,96);
+   TinyCell(g,269,"SESSION",reading==null?"—":Display.Net,95);
+   TinyCell(g,376,reading==null?"NEXT":"LV. "+(reading.Level+1),Display.Eta,92);
+   if(Display.Paused)using(var b=new SolidBrush(Color.FromArgb(168,102,43))) {g.FillRectangle(b,470,9,2,9);g.FillRectangle(b,474,9,2,9);}
+  }
+  void DrawToggle(Graphics g) {
+   var r=ToggleBounds;
+   Color top=buttonPressed?Color.FromArgb(153,101,47):buttonHover?Color.FromArgb(245,204,139):Color.FromArgb(227,182,113);
+   Color bottom=buttonPressed?Color.FromArgb(185,132,66):buttonHover?Color.FromArgb(220,164,88):Color.FromArgb(198,143,71);
+   Panel(g,r,app.Settings.Tiny?4:6,top,bottom,Color.FromArgb(142,96,46),1);
+   DrawText(g,app.Settings.Tiny?"FULL":"MINI",app.Settings.Tiny?9:11,FontStyle.Bold,Ink,r,StringAlignment.Center);
   }
   static void TinyCell(Graphics g,float x,string label,string value,float width) {
    using(var p=new Pen(Color.FromArgb(220,201,170)))g.DrawLine(p,x-7,7,x-7,30);
    DrawText(g,label,8.5f,FontStyle.Bold,Muted,x,3,width,11);DrawText(g,value,16,FontStyle.Bold,Ink,x,14,width,20);
   }
   void UpdateTip(Point p) {
-   var r=app.Session.Current;
-   string text=app.Status+"\n"+app.Detail;
-   if(r!=null)text="Level "+r.Level+" · "+Format.Number(r.Exp)+" / "+Format.Number(ExpTable.Required[r.Level])+" EXP\n"+Format.Number(ExpTable.Required[r.Level]-r.Exp)+" EXP to level "+(r.Level+1)+"\n\n"+app.Status+" · "+Format.Duration(app.Session.ActiveSeconds)+" tracked\nEXP/h uses the last 30 minutes of observed time.\n"+(app.Live?"":"Last values retained; waiting for a fresh reading.\n")+"Drag anywhere to move · Right-click for controls";
+   var r=Display.Current;
+   string text=Display.Status+"\n"+Display.Detail;
+   if(r!=null)text="Level "+r.Level+" · "+Format.Number(r.Exp)+" / "+Format.Number(ExpTable.Required[r.Level])+" EXP\n"+Format.Number(ExpTable.Required[r.Level]-r.Exp)+" EXP to level "+(r.Level+1)+"\n\n"+Display.Status+" · "+Format.Duration(Display.TrackedSeconds)+" tracked\nEXP/h uses the last 30 minutes of observed time.\n"+(Display.Live?"":"Last values retained; waiting for a fresh reading.\n")+"Drag anywhere to move · Right-click for controls";
+   if(IsToggle(p))text=app.Settings.Tiny?"Switch to full view":"Switch to tiny view";
    if(text==lastTip)return;lastTip=text;tip.SetToolTip(this,text);
   }
   protected override void Dispose(bool disposing) { if(disposing)tip.Dispose();base.Dispose(disposing); }
+ }
+ internal sealed class DisplaySnapshot {
+  public Reading Current;
+  public string Rate,LastFive,Net,Eta,Status,Detail;
+  public bool Paused,Live;
+  public double TrackedSeconds;
+  public static DisplaySnapshot Capture(Tracker app) {
+   var r=app.Session.Current;
+   return new DisplaySnapshot {
+    Current=r==null?null:new Reading { Level=r.Level,Exp=r.Exp,Percent=r.Percent },
+    Rate=app.RateText,LastFive=Format.Signed(app.Session.GainIn(300)),Net=Format.Signed(app.Session.Net),Eta=Format.Duration(app.Session.Eta),
+    Status=app.Status,Detail=app.Detail,Paused=app.Paused,Live=app.Live,TrackedSeconds=app.Session.ActiveSeconds
+   };
+  }
  }
 }

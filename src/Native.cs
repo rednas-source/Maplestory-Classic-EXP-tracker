@@ -26,6 +26,7 @@ namespace ViddyExp {
   [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
   [DllImport("user32.dll")] public static extern int GetWindowLong(IntPtr h,int index);
   [DllImport("user32.dll")] public static extern int SetWindowLong(IntPtr h,int index,int value);
+  [DllImport("user32.dll")] public static extern bool SetLayeredWindowAttributes(IntPtr h,uint colorKey,byte alpha,uint flags);
   [DllImport("user32.dll")] public static extern bool RegisterHotKey(IntPtr h,int id,uint mods,uint key);
   [DllImport("user32.dll")] public static extern bool UnregisterHotKey(IntPtr h,int id);
   [DllImport("user32.dll")] public static extern bool SetProcessDpiAwarenessContext(IntPtr context);

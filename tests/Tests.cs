@@ -81,6 +81,7 @@ namespace ViddyExp {
       // A deliberately synthetic preview, with the reference's recent rates.
       for(int i=1;i<=30;i++)app.Session.Samples.Add(new Sample { At=1800+i*60,Delta=i>25?3700:3766,Kind="reading" });
       app.Live=true;app.Status="Tracking";app.Detail="Synthetic preview";
+      app.View.RefreshData(DateTime.UtcNow,true);
       app.View.UpdateLayout();Check("full size",app.View.Width==660&&app.View.Height==170);
       using(var b=app.View.Render())b.Save(Path.Combine(folder,"full.png"));
       app.Settings.Tiny=true;app.View.UpdateLayout();Check("tiny size",app.View.Width==480&&app.View.Height==38);
@@ -90,9 +91,32 @@ namespace ViddyExp {
       app.Settings.Scale=.75;app.Settings.Tiny=false;app.View.UpdateLayout();Check("small full view",app.View.Width==495);
       using(var b=app.View.Render())b.Save(Path.Combine(folder,"full-75.png"));
       app.Session=new Session();app.Status="Waiting for MapleStory";app.Live=false;app.Settings.Scale=1;app.View.UpdateLayout();
+      app.View.RefreshData(DateTime.UtcNow,true);
       using(var b=app.View.Render())b.Save(Path.Combine(folder,"waiting.png"));Check("empty rate is explicit",app.RateText=="—");
       app.Session=Baseline(41,1000,now);Check("warmup displayed",app.RateText=="Wait 30s");
       var original=app.Session;app.Settings.Tiny=true;app.View.UpdateLayout();Check("layout changes preserve session",Object.ReferenceEquals(original,app.Session));
+      var displayClock=DateTime.UtcNow;
+      app.Session=Baseline(41,1000,now);app.View.RefreshData(displayClock,true);
+      var frozen=app.View.Display;
+      for(int i=1;i<=11;i++) {
+       app.Session.Observe(Read(41,1000+i*10),now.AddSeconds(i));
+       Check("display holds on background reading "+i,!app.View.RefreshData(displayClock.AddSeconds(i),false)&&Object.ReferenceEquals(frozen,app.View.Display));
+      }
+      Check("background EXP still counts between visual updates",app.Session.Net==110&&app.View.Display.Current.Exp==1000);
+      using(var repaint=app.View.Render())Check("repainting does not publish live values",app.View.Display.Current.Exp==1000);
+      Check("display publishes at twelve seconds",app.View.RefreshData(displayClock.AddSeconds(12),false)&&app.View.Display.Current.Exp==1110);
+      app.Session.Current.Exp=1120;Check("display owns a copy of its reading",app.View.Display.Current.Exp==1110);
+      app.TogglePause();Check("explicit pause responds immediately",app.View.Display.Paused);
+      app.TogglePause();Check("explicit resume responds immediately",!app.View.Display.Paused);
+      app.Session=new Session();app.View.RefreshData(displayClock,true);app.Session=Baseline(41,1200,now);
+      Check("first confirmed reading displays without twelve-second delay",app.View.RefreshData(displayClock.AddSeconds(1),false)&&app.View.Display.Current.Exp==1200);
+      app.Settings.Scale=1.5;app.Settings.Tiny=false;app.View.UpdateLayout();
+      Check("button switches full to tiny at display scale",app.View.ToggleAt(new Point(495,35))&&app.Settings.Tiny);
+      Check("button switches tiny to full at display scale",app.View.ToggleAt(new Point(360,12))&&!app.Settings.Tiny);
+      Check("drag area does not trigger mode switch",!app.View.ToggleAt(new Point(150,80))&&!app.Settings.Tiny);
+      app.Settings.Locked=true;Check("click-through mode preserves lock",!app.View.ToggleAt(new Point(495,35))&&!app.Settings.Tiny);app.Settings.Locked=false;
+      Check("rounded window excludes transparent corners",!app.View.Region.IsVisible(0,0)&&app.View.Region.IsVisible(495,35));
+      Check("window does not use magenta color-key transparency",app.View.TransparencyKey.IsEmpty&&app.View.BackColor!=Color.Magenta);
      } finally { app.View.Dispose();app.Menu.Dispose();app.Dispose(); }
     }
     results.Add("All "+results.Count+" checks passed.");Console.WriteLine(String.Join(Environment.NewLine,results));

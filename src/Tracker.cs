@@ -19,10 +19,12 @@ namespace ViddyExp {
   Hotkeys hotkeys;
   OcrReader reader;
   bool busy,exiting,resetReader=true;
+  readonly bool persistPreferences;
   int epoch;
   IntPtr lastWindow;
   DateTime lastGood=DateTime.MinValue;
   public Tracker(bool start) {
+   persistPreferences=start;
    Settings=start?PreferencesStore.Load():new Preferences();
    Menu=CreateMenu(); View=new Overlay(this);
    if(!start) return;
@@ -76,24 +78,24 @@ namespace ViddyExp {
     Wait("Reader unavailable",e.Message+"\nKeep the HUD visible. If OCR cannot start, install the Microsoft Visual C++ x64 runtime listed in README.");
    } finally {
     busy=false;
-    if(!exiting) View.Invalidate();
+    if(!exiting) View.RefreshData(DateTime.UtcNow,false);
    }
   }
-  void Wait(string status,string detail) { Status=status;Detail=detail;Live=false;Session.Break();View.Invalidate(); }
+  void Wait(string status,string detail) { Status=status;Detail=detail;Live=false;Session.Break();View.RefreshData(DateTime.UtcNow,false); }
   public string RateText {
    get { return Session.Current==null?"—":Session.ActiveSeconds<30?"Wait "+Math.Ceiling(30-Session.ActiveSeconds)+"s":Format.Compact(Session.Rate(1800)); }
   }
   public void TogglePause() {
    Paused=!Paused; epoch++; Session.Break(); Live=false;
-   Status=Paused?"Paused":"Waiting for MapleStory"; View.Invalidate();
+   Status=Paused?"Paused":"Waiting for MapleStory"; View.RefreshData(DateTime.UtcNow,true);
   }
   public void ResetSession() {
    if(Session.Current!=null&&MessageBox.Show("Reset this session's EXP and rates?","New EXP session",MessageBoxButtons.OKCancel,MessageBoxIcon.Question)!=DialogResult.OK) return;
-   Session=new Session(); epoch++; Live=false; lastGood=DateTime.MinValue; Status="Waiting for the EXP bar"; View.Invalidate();
+   Session=new Session(); epoch++; Live=false; lastGood=DateTime.MinValue; Status="Waiting for the EXP bar"; View.RefreshData(DateTime.UtcNow,true);
   }
   public void ToggleTiny() { Settings.Tiny=!Settings.Tiny; View.UpdateLayout(); Save(); }
   public void ToggleLock() { Settings.Locked=!Settings.Locked; View.ApplyLock(); Save(); }
-  public void Save() { Settings.X=View.Left;Settings.Y=View.Top;PreferencesStore.Save(Settings); }
+  public void Save() { if(!persistPreferences)return; Settings.X=View.Left;Settings.Y=View.Top;PreferencesStore.Save(Settings); }
   ContextMenuStrip CreateMenu() {
    var menu=new ContextMenuStrip { Font=new Font("Segoe UI",10),BackColor=Color.FromArgb(255,250,237),ForeColor=Color.FromArgb(68,47,28),ShowImageMargin=false };
    var status=new ToolStripMenuItem("Waiting for MapleStory") { Enabled=false };
