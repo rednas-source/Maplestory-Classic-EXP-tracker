@@ -1,0 +1,23 @@
+name: Build EXP tracker
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and test
+        shell: powershell
+        run: ./Build.ps1 -Test
+      - name: Package ready-to-run ZIP
+        shell: powershell
+        run: ./Release.ps1
+      - name: Upload release ZIP and test output
+        uses: actions/upload-artifact@v4
+        with:
+          name: Viddy-EXP-Only-Windows-x64
+          path: |
+            artifacts/Viddy-EXP-Only-Windows-x64.zip
+            artifacts/SHA256SUMS.txt
+            artifacts/test-results.txt

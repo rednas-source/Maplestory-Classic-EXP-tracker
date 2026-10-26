@@ -1,0 +1,8 @@
+bin/
+artifacts/
+*.user
+*.suo
+.vs/
+preferences.json
+*.tmp
+*.zip
