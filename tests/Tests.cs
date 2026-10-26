@@ -112,7 +112,7 @@ namespace ViddyExp {
       Check("first confirmed reading displays without twelve-second delay",app.View.RefreshData(displayClock.AddSeconds(1),false)&&app.View.Display.Current.Exp==1200);
       app.Settings.Scale=1.5;app.Settings.Tiny=false;app.View.UpdateLayout();
       Check("button switches full to tiny at display scale",app.View.ToggleAt(new Point(495,35))&&app.Settings.Tiny);
-      Check("button switches tiny to full at display scale",app.View.ToggleAt(new Point(360,12))&&!app.Settings.Tiny);
+      Check("right-edge button switches tiny to full at display scale",app.View.ToggleAt(new Point(696,28))&&!app.Settings.Tiny);
       Check("drag area does not trigger mode switch",!app.View.ToggleAt(new Point(150,80))&&!app.Settings.Tiny);
       app.Settings.Locked=true;Check("click-through mode preserves lock",!app.View.ToggleAt(new Point(495,35))&&!app.Settings.Tiny);app.Settings.Locked=false;
       Check("rounded window excludes transparent corners",!app.View.Region.IsVisible(0,0)&&app.View.Region.IsVisible(495,35));

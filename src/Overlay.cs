@@ -73,7 +73,7 @@ namespace ViddyExp {
   GraphicsPath WindowShape() {
    return app.Settings.Tiny?Round(new RectangleF(.5f,.5f,478,36),8):Round(new RectangleF(1,2,657,166),15);
   }
-  internal RectangleF ToggleBounds { get { return app.Settings.Tiny?new RectangleF(219,1,42,15):new RectangleF(302,12,56,23); } }
+  internal RectangleF ToggleBounds { get { return app.Settings.Tiny?new RectangleF(451,2,26,33):new RectangleF(302,12,56,23); } }
   bool IsToggle(Point point) { return ToggleBounds.Contains(point.X/(float)app.Settings.Scale,point.Y/(float)app.Settings.Scale); }
   internal bool ToggleAt(Point point) {
    if(app.Settings.Locked||!IsToggle(point))return false;
@@ -172,9 +172,9 @@ namespace ViddyExp {
    DrawText(g,reading==null?(Display.Paused?"PAUSED":"WAITING"):reading.Percent.ToString("0.00")+"%",12,FontStyle.Bold,Ink,83,3,63,23);
    Progress(g,new RectangleF(83,27,60,5),false);
    TinyCell(g,154,"EXP/H",Display.Rate,96);
-   TinyCell(g,269,"SESSION",reading==null?"—":Display.Net,95);
-   TinyCell(g,376,reading==null?"NEXT":"LV. "+(reading.Level+1),Display.Eta,92);
-   if(Display.Paused)using(var b=new SolidBrush(Color.FromArgb(168,102,43))) {g.FillRectangle(b,470,9,2,9);g.FillRectangle(b,474,9,2,9);}
+   TinyCell(g,260,"SESSION",reading==null?"—":Display.Net,96);
+   TinyCell(g,365,reading==null?"NEXT":"LV. "+(reading.Level+1),Display.Eta,80);
+   if(Display.Paused)using(var b=new SolidBrush(Color.FromArgb(168,102,43))) {g.FillRectangle(b,432,5,2,7);g.FillRectangle(b,436,5,2,7);}
   }
   void DrawToggle(Graphics g) {
    var r=ToggleBounds;
