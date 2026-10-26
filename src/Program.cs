@@ -7,8 +7,8 @@ using System.Reflection;
 [assembly: AssemblyDescription("Standalone screen-reading EXP tracker")]
 [assembly: AssemblyCompany("Viddy EXP contributors")]
 [assembly: AssemblyProduct("Viddy EXP Only")]
-[assembly: AssemblyVersion("1.0.1.0")]
-[assembly: AssemblyFileVersion("1.0.1.0")]
+[assembly: AssemblyVersion("1.0.2.0")]
+[assembly: AssemblyFileVersion("1.0.2.0")]
 namespace ViddyExp {
  static class Program {
   [STAThread] static void Main() {

@@ -52,7 +52,7 @@ The screenshots use example values. Your level and EXP appear when the game HUD 
 | What you want to do | How |
 | --- | --- |
 | Move the overlay | **Left-click and drag anywhere** on it, including in tiny mode |
-| Use tiny mode / return to full view | Click **MINI / FULL** at the **top center**, or press **Ctrl+Alt+T**; also available in the right-click menu |
+| Use tiny mode / return to full view | Click the **small chevron at the top center**, or press **Ctrl+Alt+T**; hover over the chevron for a hint. Also available in the right-click menu |
 | Pause / resume reading | Right-click → **Pause tracking / Resume tracking**, or **Ctrl+Alt+P** |
 | Click through the overlay | Right-click → **Click through**, or **Ctrl+Alt+L** |
 | Unlock a click-through overlay | **Ctrl+Alt+L**, or use the **tray icon's menu** |

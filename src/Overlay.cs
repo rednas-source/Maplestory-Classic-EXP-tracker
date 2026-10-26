@@ -178,10 +178,21 @@ namespace ViddyExp {
   }
   void DrawToggle(Graphics g) {
    var r=ToggleBounds;
-   Color top=buttonPressed?Color.FromArgb(153,101,47):buttonHover?Color.FromArgb(245,204,139):Color.FromArgb(227,182,113);
-   Color bottom=buttonPressed?Color.FromArgb(185,132,66):buttonHover?Color.FromArgb(220,164,88):Color.FromArgb(198,143,71);
-   Panel(g,r,app.Settings.Tiny?4:6,top,bottom,Color.FromArgb(142,96,46),1);
-   DrawText(g,app.Settings.Tiny?"FULL":"MINI",app.Settings.Tiny?9:11,FontStyle.Bold,Ink,r,StringAlignment.Center);
+   float x=r.X+r.Width/2,y=r.Y+r.Height/2;
+   bool tiny=app.Settings.Tiny,active=buttonHover||buttonPressed;
+   // Keep the larger hit area, but let the icon blend into the header at rest.
+   if(active) {
+    var highlight=new RectangleF(x-11,y-7,22,14);
+    using(var shape=Round(highlight,5))
+    using(var brush=new SolidBrush(Color.FromArgb(buttonPressed?48:27,tiny?Ink:Color.White)))g.FillPath(brush,shape);
+   }
+   Color color=tiny?Color.FromArgb(active?230:155,139,106,62):Color.FromArgb(active?255:160,255,238,205);
+   float halfWidth=tiny?4:4.5f,halfHeight=tiny?1.75f:2;
+   float direction=tiny?-1:1;
+   using(var pen=new Pen(color,1.6f)) {
+    pen.StartCap=LineCap.Round;pen.EndCap=LineCap.Round;pen.LineJoin=LineJoin.Round;
+    g.DrawLines(pen,new[]{new PointF(x-halfWidth,y-direction*halfHeight),new PointF(x,y+direction*halfHeight),new PointF(x+halfWidth,y-direction*halfHeight)});
+   }
   }
   static void TinyCell(Graphics g,float x,string label,string value,float width) {
    using(var p=new Pen(Color.FromArgb(220,201,170)))g.DrawLine(p,x-7,7,x-7,30);
